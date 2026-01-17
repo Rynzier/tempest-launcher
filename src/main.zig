@@ -1,14 +1,14 @@
 const std = @import("std");
-const rl = @import("raylib");
 const rg = @import("raygui");
+const rl = @import("raylib");
+
+const screenHeight = 720;
+const screenWidth = 600;
 
 pub fn main() !void {
     std.debug.print("Starting Program\n", .{});
 
     //Initialization
-    const screenWidth = 800;
-    const screenHeight = 450;
-
     rl.initWindow(screenWidth, screenHeight, "Tempest Launcher");
     defer rl.closeWindow(); // Close window and OpenGL context
 
@@ -17,17 +17,21 @@ pub fn main() !void {
     // Main program loop
     while (!rl.windowShouldClose()) {
         // Update
+        try updateFrame();
 
         // Draw
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(.white);
-
-        rl.drawText("Yippee", 190, 200, 20, .light_gray);
+        try drawFrame();
     }
 }
 
-pub fn updateFrame() i8 {}
+pub fn updateFrame() !void {}
 
-pub fn drawFrame() i8 {}
+pub fn drawFrame() !void {
+    if (rg.button(rl.Rectangle{ .x = 0, .y = 0, .width = 100, .height = 20 }, rg.iconText(@intFromEnum(rg.IconName.file_add), "Add Instance"))) {
+        std.debug.print("tested!\n", .{});
+    }
+}
