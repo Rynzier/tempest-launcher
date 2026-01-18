@@ -59,7 +59,9 @@ pub fn drawFrame() !void {
         packNum = try getPackData(std.heap.c_allocator, &packArray);
     }
 
-    try drawInstanceButton(rl.Rectangle{ .x = 50, .y = 50, .width = 200, .height = 200 }, &packArray[0]);
+    if ((try drawInstanceButton(rl.Rectangle{ .x = 50, .y = 50, .width = 200, .height = 200 }, &packArray[0])) > 0) {
+        std.debug.print("Goop!\n", .{});
+    }
     // Path to Instances
     // test-files/instances/<instance_01>
     //
@@ -72,7 +74,7 @@ pub fn drawFrame() !void {
 }
 
 // Makes it easy to draw instance icon/buttons
-pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !void {
+pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !i32 {
     var result: i32 = 0;
     var state: rg.State = @enumFromInt(rg.getState());
 
@@ -99,10 +101,12 @@ pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !void {
             rect,
             rl.Vector2.zero(),
             0.0,
-            .white,
+            if (state == rg.State.focused) .blue else .white,
         );
     }
     rl.drawText(pack.name, @intFromFloat(rect.x), @intFromFloat((rect.y + rect.height + 4)), 16, .gray);
+
+    return result;
 }
 
 pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !i32 {
