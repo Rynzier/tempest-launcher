@@ -5,9 +5,12 @@ const rl = @import("raylib");
 // Internal representation of modpack instances
 const TempestPack = struct {
     name: [:0]const u8,
-    path: []u8,
-    icon: rl.Texture,
+    path: [:0]const u8,
+    icon: ?rl.Texture,
 };
+
+var packArray: [64]TempestPack = [_]TempestPack{.{ .name = "", .path = "", .icon = null }} ** 64;
+var packNum: i32 = 0;
 
 const screenHeight = 720;
 const screenWidth = 720;
@@ -51,6 +54,12 @@ pub fn drawFrame() !void {
         std.debug.print("opening folders.\n", .{});
     }
 
+    if (rg.button(rl.Rectangle{ .x = 4, .y = screenHeight - 24, .width = 100, .height = 20 }, rg.iconText(@intFromEnum(rg.IconName.redo), "Refresh Packs"))) {
+        std.debug.print("Refreshing packs.\n", .{});
+        packNum = try getPackData(std.heap.c_allocator, &packArray);
+    }
+
+    try drawInstanceButton(rl.Rectangle{ .x = 50, .y = 50, .width = 200, .height = 200 }, &packArray[0]);
     // Path to Instances
     // test-files/instances/<instance_01>
     //
@@ -63,15 +72,15 @@ pub fn drawFrame() !void {
 }
 
 // Makes it easy to draw instance icon/buttons
-pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) i32 {
+pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !void {
     var result: i32 = 0;
-    var state: rg.State = rg.getState();
+    var state: rg.State = @enumFromInt(rg.getState());
 
     // Control logic
     if ((state != rg.State.disabled) and !rg.isLocked()) { // missing check for gui exclusive mode
         const mousePoint: rl.Vector2 = rl.getMousePosition();
 
-        if (rl.CheckCollisionPointRec(mousePoint, rect)) {
+        if (rl.checkCollisionPointRec(mousePoint, rect)) {
             if (rl.isMouseButtonDown(rl.MouseButton.left)) {
                 state = rg.State.pressed;
             } else {
@@ -83,19 +92,21 @@ pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) i32 {
     }
 
     // Draw the control
-    rl.drawTexturePro(
-        pack.icon,
-        rl.Rectangle{ .x = 0, .y = 0, .width = pack.icon.width, .height = pack.icon.height },
-        rect,
-        rl.Vector2.zero(),
-        0.0,
-        .white,
-    );
-    rl.drawText(pack.name, rect.x, (rect.y + rect.height + 4), 24, .gray);
+    if (pack.icon) |icon| {
+        rl.drawTexturePro(
+            icon,
+            rl.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(icon.width), .height = @floatFromInt(icon.height) },
+            rect,
+            rl.Vector2.zero(),
+            0.0,
+            .white,
+        );
+    }
+    rl.drawText(pack.name, @intFromFloat(rect.x), @intFromFloat((rect.y + rect.height + 4)), 16, .gray);
 }
 
-pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !void {
-    var curDir = try std.fs.cwd().openDir("test-files", .{ .iterate = true });
+pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !i32 {
+    var curDir = try std.fs.cwd().openDir("test-files/instances", .{ .iterate = true });
     defer curDir.close();
 
     var i: usize = 0;
@@ -103,14 +114,25 @@ pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !void {
     var itr = curDir.iterate();
     while (try itr.next()) |entry| : (i += 1) {
         if (entry.kind == .directory) {
-            var curInstance: std.fs.Dir = curDir.openDir(entry.name, .{});
-            defer curInstance.close();
+            const pathArray: [4][]const u8 = [_][]const u8{ "test-files", "instances", entry.name, "packicon.png" };
+            const curPath: [:0]const u8 = try std.fs.path.joinZ(alloc, &pathArray);
 
-            const prePath: []const u8 = entry.name;
-            const pathArray: [2][]const u8 = [_]u8{ prePath, "modicon.png" };
-            const curPath: []const u8 = std.fs.path.join(alloc, pathArray);
-            _ = curPath;
-            _ = pack_array;
+            const instancePath: [3][]const u8 = [_][]const u8{ "test-files", "instances", entry.name };
+            const curInstancePath: [:0]const u8 = try std.fs.path.joinZ(alloc, &instancePath);
+
+            pack_array[i].path = curInstancePath;
+
+            std.debug.print("file path: {s}\n", .{curPath});
+            if (pack_array[i].icon) |icon| {
+                rl.unloadTexture(icon);
+            }
+
+            pack_array[i].icon = try rl.loadTexture(curPath);
+
+            //TODO: Implement JSON parsing to get pack name.
+            pack_array[i].name = "test";
         }
     }
+
+    return @intCast(i);
 }
