@@ -4,7 +4,7 @@ const rl = @import("raylib");
 
 // Internal representation of modpack instances
 const TempestPack = struct {
-    name: [:0]const u8,
+    name: ?[:0]const u8 = null,
     path: []u8,
     icon: ?rl.Texture = null,
 };
@@ -58,7 +58,9 @@ pub fn drawFrame() !void {
         try getPackData(std.heap.c_allocator, &packArray);
     }
 
-    _ = drawInstanceButton(rl.Rectangle{ .x = 100, .y = 100, .width = 100, .height = 100 }, &packArray[0]);
+    if (packArray[0].icon != null and packArray[0].name != null) {
+        _ = drawInstanceButton(rl.Rectangle{ .x = 100, .y = 100, .width = 100, .height = 100 }, &packArray[0]);
+    }
     // Path to Instances
     // test-files/instances/<instance_01>
     //
@@ -104,7 +106,7 @@ pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) i32 {
     // const textX: i32 = @intFromFloat(rect.x);
     // const textY: i32 = @intFromFloat(rect.y + rect.height + 4);
     // rl.drawText(pack.name, textX, textY, 24, .gray);
-    rl.drawText(pack.name, 100, 100, 25, .gray);
+    rl.drawText("goop", 100, 100, 25, .gray);
     return result;
 }
 
@@ -126,8 +128,10 @@ pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !void {
             if (pack_array[i].icon != null) {
                 rl.unloadTexture(pack_array[i].icon.?);
             }
-
             pack_array[i].icon = try rl.loadTexture(finalPath);
+
+            const packConfig: []u8 = try curInstance.readFileAlloc(alloc, "packconfig.json", 1024);
+            _ = packConfig;
         }
     }
 }
