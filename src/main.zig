@@ -5,15 +5,14 @@ const rl = @import("raylib");
 // Internal representation of modpack instances
 const TempestPack = struct {
     name: [:0]const u8,
-    path: [:0]const u8,
-    icon: ?rl.Texture,
+    path: []u8,
+    icon: ?rl.Texture = null,
 };
-
-var packArray: [64]TempestPack = [_]TempestPack{.{ .name = "", .path = "", .icon = null }} ** 64;
-var packNum: i32 = 0;
 
 const screenHeight = 720;
 const screenWidth = 720;
+
+var packArray: [64]TempestPack = undefined;
 
 pub fn main() !void {
     std.debug.print("Starting Program\n", .{});
@@ -54,14 +53,12 @@ pub fn drawFrame() !void {
         std.debug.print("opening folders.\n", .{});
     }
 
-    if (rg.button(rl.Rectangle{ .x = 4, .y = screenHeight - 24, .width = 100, .height = 20 }, rg.iconText(@intFromEnum(rg.IconName.redo), "Refresh Packs"))) {
-        std.debug.print("Refreshing packs.\n", .{});
-        packNum = try getPackData(std.heap.c_allocator, &packArray);
+    if (rg.button(rl.Rectangle{ .x = 4, .y = screenHeight - 24, .width = 120, .height = 20 }, rg.iconText(@intFromEnum(rg.IconName.redo), "Refresh Packs"))) {
+        std.debug.print("refreshing.\n", .{});
+        try getPackData(std.heap.c_allocator, &packArray);
     }
 
-    if ((try drawInstanceButton(rl.Rectangle{ .x = 50, .y = 50, .width = 200, .height = 200 }, &packArray[0])) > 0) {
-        std.debug.print("Goop!\n", .{});
-    }
+    _ = drawInstanceButton(rl.Rectangle{ .x = 100, .y = 100, .width = 100, .height = 100 }, &packArray[0]);
     // Path to Instances
     // test-files/instances/<instance_01>
     //
@@ -74,7 +71,7 @@ pub fn drawFrame() !void {
 }
 
 // Makes it easy to draw instance icon/buttons
-pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !i32 {
+pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) i32 {
     var result: i32 = 0;
     var state: rg.State = @enumFromInt(rg.getState());
 
@@ -94,22 +91,24 @@ pub fn drawInstanceButton(rect: rl.Rectangle, pack: *TempestPack) !i32 {
     }
 
     // Draw the control
-    if (pack.icon) |icon| {
+    if (pack.icon) |aIcon| {
         rl.drawTexturePro(
-            icon,
-            rl.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(icon.width), .height = @floatFromInt(icon.height) },
+            aIcon,
+            rl.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(aIcon.width), .height = @floatFromInt(aIcon.height) },
             rect,
             rl.Vector2.zero(),
             0.0,
-            if (state == rg.State.focused) .blue else .white,
+            .white,
         );
     }
-    rl.drawText(pack.name, @intFromFloat(rect.x), @intFromFloat((rect.y + rect.height + 4)), 16, .gray);
-
+    // const textX: i32 = @intFromFloat(rect.x);
+    // const textY: i32 = @intFromFloat(rect.y + rect.height + 4);
+    // rl.drawText(pack.name, textX, textY, 24, .gray);
+    rl.drawText(pack.name, 100, 100, 25, .gray);
     return result;
 }
 
-pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !i32 {
+pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !void {
     var curDir = try std.fs.cwd().openDir("test-files/instances", .{ .iterate = true });
     defer curDir.close();
 
@@ -118,25 +117,17 @@ pub fn getPackData(alloc: std.mem.Allocator, pack_array: []TempestPack) !i32 {
     var itr = curDir.iterate();
     while (try itr.next()) |entry| : (i += 1) {
         if (entry.kind == .directory) {
-            const pathArray: [4][]const u8 = [_][]const u8{ "test-files", "instances", entry.name, "packicon.png" };
-            const curPath: [:0]const u8 = try std.fs.path.joinZ(alloc, &pathArray);
+            var curInstance: std.fs.Dir = try curDir.openDir(entry.name, .{});
+            defer curInstance.close();
 
-            const instancePath: [3][]const u8 = [_][]const u8{ "test-files", "instances", entry.name };
-            const curInstancePath: [:0]const u8 = try std.fs.path.joinZ(alloc, &instancePath);
+            const pathArray: [4][]const u8 = .{ "test-files", "instances", entry.name, "packicon.png" };
+            const finalPath: [:0]u8 = try std.fs.path.joinZ(alloc, &pathArray);
 
-            pack_array[i].path = curInstancePath;
-
-            std.debug.print("file path: {s}\n", .{curPath});
-            if (pack_array[i].icon) |icon| {
-                rl.unloadTexture(icon);
+            if (pack_array[i].icon != null) {
+                rl.unloadTexture(pack_array[i].icon.?);
             }
 
-            pack_array[i].icon = try rl.loadTexture(curPath);
-
-            //TODO: Implement JSON parsing to get pack name.
-            pack_array[i].name = "test";
+            pack_array[i].icon = try rl.loadTexture(finalPath);
         }
     }
-
-    return @intCast(i);
 }
