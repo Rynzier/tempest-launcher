@@ -1,8 +1,8 @@
 {
     "dbmods": {
-        "carryon": "1.12.1"
+        "examplemod": "1.0.0"
     },
     "custom": {
-        "examplemod": "1.69.0"
+        "examplemod": "1.0.0"
     }
 }
